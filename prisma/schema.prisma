@@ -1,0 +1,525 @@
+// B.L.U.E. Platform Prisma Schema
+// Better Living Unites Everyone — production-grade Postgres schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_0NwMvm7aBeEU@ep-green-shadow-b5c7oyog-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
+}
+
+// =====================
+// ENUMS
+// =====================
+
+enum UserRole {
+  CUSTOMER
+  WORKER
+  ADMIN
+  CONTRACTOR
+}
+
+enum WorkerCategory {
+  INDIVIDUAL_WORKER
+  CONTRACTOR
+  CAR_WASHING
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  PROPOSAL_RECEIVED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ConversationType {
+  JOB
+  DIRECT
+  SUPPORT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+  TRIALING
+}
+
+enum SubscriptionPlan {
+  MONTHLY
+  YEARLY
+  FREE
+}
+
+enum NotificationType {
+  NEW_PROPOSAL
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  NEW_MESSAGE
+  JOB_UPDATE
+  JOB_COMPLETED
+  WORKER_ASSIGNED
+  CUSTOMER_REQUEST
+  SUBSCRIPTION_EVENT
+  SYSTEM
+  VERIFICATION_UPDATE
+}
+
+enum JobEventType {
+  REQUEST_CREATED
+  PROPOSAL_SUBMITTED
+  PROPOSAL_ACCEPTED
+  WORKER_ASSIGNED
+  WORK_STARTED
+  WORK_COMPLETED
+  CUSTOMER_CONFIRMED
+  PAYMENT_PROCESSED
+  CANCELLED
+  DISPUTED
+}
+
+// =====================
+// USERS
+// =====================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  chatName      String?
+  role          UserRole @default(CUSTOMER)
+  phone         String?
+  avatarUrl     String?
+  location      String?
+  isActive      Boolean  @default(true)
+  isSuspended   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  customerProfile  CustomerProfile?
+  workerProfile    WorkerProfile?
+  jobsAsCustomer   Job[]                 @relation("CustomerJobs")
+  proposals        Proposal[]
+  conversations    ConversationParticipant[]
+  messagesSent     Message[]             @relation("SentMessages")
+  notifications    Notification[]
+  subscriptions    Subscription[]
+  reviewsGiven     Review[]              @relation("ReviewsGiven")
+  reviewsReceived  Review[]              @relation("ReviewsReceived")
+  favoritesAsCustomer Favorite[]         @relation("FavoriteCustomer")
+  favoritesAsWorker   Favorite[]         @relation("FavoriteWorker")
+  jobEvents        JobEvent[]
+  auditLogs        AuditLog[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+// =====================
+// CUSTOMER PROFILES
+// =====================
+
+model CustomerProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferences  Json?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// =====================
+// WORKER PROFILES
+// =====================
+
+model WorkerProfile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category          WorkerCategory     @default(INDIVIDUAL_WORKER)
+  title             String?
+  bio               String?
+  experienceYears   Int                @default(0)
+  hourlyRate        Float?
+  startingRate      Float?
+  currency          String             @default("USD")
+  serviceRadius     Int?
+  isAvailable       Boolean            @default(true)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  // Stats (denormalized for performance)
+  completedJobs     Int                @default(0)
+  ratingAverage     Float              @default(0)
+  ratingCount       Int                @default(0)
+  responseTimeHours Float?
+  // Skills / tags as JSON
+  services          Json?
+  portfolioUrls     String[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // Relations
+  reviews           Review[]           @relation("WorkerReviews")
+
+  @@index([userId])
+  @@index([category])
+  @@index([verificationStatus])
+  @@index([isAvailable])
+}
+
+// =====================
+// JOBS
+// =====================
+
+model Job {
+  id              String         @id @default(cuid())
+  customerId      String
+  customer        User           @relation("CustomerJobs", fields: [customerId], references: [id])
+  category        WorkerCategory
+  title           String
+  description     String
+  // Location
+  location        String?
+  city            String?
+  state           String?
+  zipCode         String?
+  lat             Float?
+  lng             Float?
+  // Scheduling & budget
+  preferredDate   DateTime?
+  budgetMin       Float?
+  budgetMax       Float?
+  currency        String         @default("USD")
+  // Status
+  status          JobStatus      @default(OPEN)
+  assignedWorkerId String?
+  // Requirements
+  requirements    Json?
+  // Attachments
+  attachments     String[]
+  // Meta
+  viewCount       Int            @default(0)
+  proposalCount   Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+
+  // Relations
+  proposals       Proposal[]
+  events          JobEvent[]
+  reviews         Review[]
+  conversation    Conversation?
+
+  @@index([customerId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+// =====================
+// PROPOSALS
+// =====================
+
+model Proposal {
+  id              String          @id @default(cuid())
+  jobId           String
+  job             Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  workerId        String
+  worker          User            @relation(fields: [workerId], references: [id])
+  proposedPrice   Float
+  currency        String          @default("USD")
+  estimatedTime   String?
+  availableFrom   DateTime?
+  availableTo     DateTime?
+  message         String
+  notes           String?
+  status          ProposalStatus  @default(PENDING)
+  isRead          Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+
+  @@index([jobId])
+  @@index([workerId])
+  @@index([status])
+}
+
+// =====================
+// CONVERSATIONS & MESSAGES
+// =====================
+
+model Conversation {
+  id            String             @id @default(cuid())
+  type          ConversationType  @default(JOB)
+  jobId         String?            @unique
+  job           Job?              @relation(fields: [jobId], references: [id])
+  subject       String?
+  lastMessageAt DateTime?
+  lastMessagePreview String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  participants  ConversationParticipant[]
+  messages      Message[]
+
+  @@index([jobId])
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  lastReadAt      DateTime?
+  isTyping        Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          User         @relation("SentMessages", fields: [senderId], references: [id])
+  body            String
+  attachments     String[]
+  isRead          Boolean      @default(false)
+  readBy          String[]
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// =====================
+// NOTIFICATIONS
+// =====================
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  body        String?
+  link        String?
+  relatedId   String?
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// =====================
+// SUBSCRIPTIONS
+// =====================
+
+model Subscription {
+  id            String             @id @default(cuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan
+  status        SubscriptionStatus  @default(TRIALING)
+  amount        Float
+  currency      String             @default("USD")
+  interval      String             @default("monthly") // monthly | yearly
+  startDate     DateTime           @default(now())
+  endDate       DateTime?
+  currentPeriodEnd DateTime?
+  cancelAt      DateTime?
+  cancelledAt   DateTime?
+  paymentProvider String?
+  externalSubId  String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// =====================
+// REVIEWS
+// =====================
+
+model Review {
+  id          String          @id @default(cuid())
+  jobId       String
+  job         Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewerId  String
+  reviewer    User            @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId  String
+  reviewee    User            @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  workerProfileId String?
+  workerProfile WorkerProfile? @relation("WorkerReviews", fields: [workerProfileId], references: [id])
+  rating      Int
+  comment     String?
+  isPublic    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+
+  @@unique([jobId, reviewerId])
+  @@index([revieweeId])
+  @@index([workerProfileId])
+}
+
+// =====================
+// FAVORITES
+// =====================
+
+model Favorite {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    User     @relation("FavoriteCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  workerId    String
+  worker      User     @relation("FavoriteWorker", fields: [workerId], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@unique([customerId, workerId])
+  @@index([customerId])
+}
+
+// =====================
+// JOB EVENTS (TIMELINE)
+// =====================
+
+model JobEvent {
+  id          String        @id @default(cuid())
+  jobId       String
+  job         Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?         @relation(fields: [actorId], references: [id])
+  type        JobEventType
+  title       String
+  description String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  @@index([jobId, createdAt])
+}
+
+// =====================
+// WORKER AVAILABILITY (CALENDAR)
+// =====================
+
+model WorkerAvailability {
+  id          String   @id @default(cuid())
+  workerId    String   @unique
+  schedule    Json     // structured weekly availability
+  blockedDates String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workerId])
+}
+
+// =====================
+// SAVED SEARCHES
+// =====================
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  filters     Json
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// =====================
+// DISPUTES / REPORTS
+// =====================
+
+model Dispute {
+  id          String   @id @default(cuid())
+  jobId       String
+  raisedBy    String
+  reason      String
+  description String
+  status      String   @default("OPEN") // OPEN | INVESTIGATING | RESOLVED | DISMISSED
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([jobId])
+  @@index([status])
+}
+
+// =====================
+// AUDIT LOG
+// =====================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  action      String
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// =====================
+// SUPPORT TICKETS
+// =====================
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  category    String
+  priority    String   @default("NORMAL")
+  status      String   @default("OPEN")
+  body        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
