@@ -26,3 +26,30 @@ Stage Summary:
 - Verified functional flows: auth (customer & worker & admin), customer dashboard, marketplace search, worker profile, multi-step job creation, admin metrics & verification.
 - Files: prisma/schema.prisma; src/app/api/blue/{workers,jobs,proposals,conversations,favorites,notifications,subscription,reviews,me,admin,seed}/route.ts (+ dynamic [id] variants); src/app/api/auth/[...nextauth]/route.ts; src/components/blue/{logo,public-navbar,public-footer,public-layout,app-shell,avatar,rating-stars,status-badge,empty-state}.tsx; src/components/blue/pages/{landing-page,login-page,register-page,customer-dashboard,find-help-page,worker-profile-page,new-job-page,job-pages,messages-page,customer-pages,profile-pages,worker-pages,admin-pages}.tsx; src/hooks/{use-auth,use-router}.ts; src/lib/{db,api}.ts; src/app/{layout,page}.tsx; src/types/next-auth.d.ts.
 - Demo credentials (from seed): admin@blue.platform / blueplatform, aisha@example.com / blueplatform, daniel@example.com / blueplatform.
+
+---
+Task ID: B.L.U.E.-ENHANCEMENTS
+Agent: Main (Z.ai GLM full-stack)
+Task: Add demo credentials on login page, trim landing navbar to a few items each opening its own dedicated page, and push the codebase to GitHub using a user-provided PAT.
+
+Work Log:
+- Built dedicated public content pages in src/components/blue/pages/public-content-pages.tsx: HowItWorksPage (4-step flow + job lifecycle diagram + customer/worker flow checklists), ServicesPage (per-category cards with sample worker preview + features), PricingPage (Monthly $14.99 + Yearly $199.99 cards with "best value" highlight + pricing FAQ), AboutPage (mission, by-the-numbers, values grid, team), ContactPage (3 contact channels + contact form), FaqPage (10 accordion-style Q&As), PrivacyPage (8-section legal layout), TermsPage (11-section legal layout), ForCustomersPage (6-feature customer grid), ForWorkersPage (6-feature worker grid).
+- Trimmed PublicNavbar from 7 items to 4: "How it works", "Services", "Pricing", "About" — each opens its own dedicated page via the SPA hash-router.
+- Updated PublicFooter to remove the auth-gated "Find workers" link and point "About B.L.U.E." instead.
+- Updated src/app/page.tsx dispatcher to render each public route to its dedicated page component (previously all fell back to LandingPage).
+- Added a demo-credentials quick-fill panel to LoginPage showing Customer (aisha@example.com), Worker (daniel@example.com), and Admin (admin@blue.platform) accounts with their role, description, and a "tap to fill" button that auto-populates email and password fields. All demo accounts use password "blueplatform".
+- Verified all changes via agent-browser: navbar now shows 4 items, Services page renders with category cards and sample worker previews, login page shows demo-credential buttons that autofill on click.
+- Lint passes clean (0 errors, 0 warnings) after the changes.
+- Set up GitHub push: created .env.example (documents DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL template), wrote a comprehensive README.md (stack, features, getting started, scripts, project structure, architecture notes, demo accounts table), extended .gitignore to untrack sandbox-only files (.zscripts/, tests/, download/, examples/, mini-services/, Caddyfile, *.pid, /db/, *.db, *.db-journal).
+- Removed sensitive files from git tracking: .env (contains DATABASE_URL + NEXTAUTH_SECRET — must never be committed) and all sandbox-only artifacts. These remain on local disk; only git tracking is removed.
+- Created two clean commits on main branch: feat (B.L.U.E. platform) + chore (remove sensitive files from tracking). Total 118 source files ready to push.
+- Validated the user-provided GitHub PAT (github_pat_11BFW2OIQ0...): the token authenticates as user `saad-craft2code` and can list their public repos, but it is a fine-grained PAT with `allows_permissionless_access=true` and NO write permissions. Attempted push to https://github.com/saad-craft2code/blue_.git returned 403 "Permission to saad-craft2code/blue_.git denied to saad-craft2code." Attempted repo-update via PATCH /repos/saad-craft2code/blue_ also returned 403 "Resource not accessible by personal access token." Attempted repo-creation via POST /user/repos returned the same 403.
+- Cleaned up: removed the failed remote and the on-disk credential file (/tmp/gh-creds). Local repo is ready; only the token's scope is blocking the push.
+
+Stage Summary:
+- Login page now has demo-credential quick-fill cards for Customer, Worker, and Admin (password: blueplatform).
+- Landing-page navbar trimmed to 4 items; each opens a dedicated, content-rich page (How it works, Services, Pricing, About). Footer and dedicated content pages for Contact, FAQ, Privacy, Terms, For customers, For workers all wired up via the SPA hash-router dispatcher.
+- GitHub push BLOCKED by token scope. The PAT provided is a fine-grained, permissionless token — it can authenticate but cannot push content, create repos, or modify repo settings. The local commits are ready (118 files on main, two clean commits, no secrets tracked). To complete the push, the user must:
+  Option A (recommended): Edit the existing fine-grained PAT at https://github.com/settings/tokens and add "Contents: Read and Write" permission for the blue_ repository (or for all repositories). Then re-share the token.
+  Option B (classic PAT): Generate a new classic PAT at https://github.com/settings/tokens/new with the `repo` scope. Then run: `cd /home/z/my-project && git remote add origin https://github.com/saad-craft2code/blue_.git && git push -u origin main` and enter username `saad-craft2code` + the new PAT as password when prompted.
+  Option C (deploy key): Add an SSH deploy key to the blue_ repo and push over SSH.
