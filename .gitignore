@@ -62,3 +62,8 @@ server.log
 /Caddyfile
 /mini-services/
 *.pid
+
+# Local SQLite dev databases (project uses Postgres via Prisma)
+/db/
+*.db
+*.db-journal
