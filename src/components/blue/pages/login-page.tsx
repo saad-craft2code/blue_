@@ -9,8 +9,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Mail, Lock, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, Mail, Lock, ArrowLeft, Sparkles, User, Wrench, ShieldCheck } from "lucide-react";
+
+const DEMO_ACCOUNTS = [
+  {
+    role: "Customer",
+    email: "aisha@example.com",
+    password: "blueplatform",
+    icon: User,
+    desc: "Post requests, compare proposals, manage jobs.",
+    color: "bg-primary/10 text-primary",
+  },
+  {
+    role: "Worker",
+    email: "daniel@example.com",
+    password: "blueplatform",
+    icon: Wrench,
+    desc: "Receive job requests, submit proposals, earn.",
+    color: "bg-success/10 text-success",
+  },
+  {
+    role: "Admin",
+    email: "admin@blue.platform",
+    password: "blueplatform",
+    icon: ShieldCheck,
+    desc: "Manage users, verification, and platform health.",
+    color: "bg-warning/15 text-warning",
+  },
+] as const;
 
 export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOMER" | "WORKER" }) {
   const { navigate } = useRouter();
@@ -54,6 +80,12 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
     } finally {
       setLoading(false);
     }
+  };
+
+  const quickFill = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    toast({ title: "Demo credentials filled", description: `Signed in as ${demoEmail}` });
   };
 
   return (
@@ -128,6 +160,42 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
                 {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </form>
+
+            {/* Demo credentials */}
+            <div className="mt-6 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+                Demo credentials — tap to autofill
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Run the seed once to create these accounts, or use them directly after seeding.
+              </p>
+              <div className="mt-3 space-y-2">
+                {DEMO_ACCOUNTS.map((d) => (
+                  <button
+                    key={d.email}
+                    type="button"
+                    onClick={() => quickFill(d.email, d.password)}
+                    className="w-full flex items-center gap-3 rounded-lg border border-border bg-background p-2.5 text-left hover:bg-muted/60 transition"
+                  >
+                    <span className={`grid h-8 w-8 place-items-center rounded-lg shrink-0 ${d.color}`}>
+                      <d.icon className="h-4 w-4" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">{d.role}</p>
+                        <span className="text-[10px] text-muted-foreground">tap to fill</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{d.email}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{d.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[10px] text-muted-foreground">
+                Password for all demo accounts: <code className="rounded bg-muted px-1 py-0.5 text-[10px]">blueplatform</code>
+              </p>
+            </div>
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               New to B.L.U.E.?{" "}

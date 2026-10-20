@@ -10,8 +10,8 @@ const COLS: { title: string; links: { label: string; route: Route }[] }[] = [
     links: [
       { label: "How it works", route: { name: "how-it-works" } },
       { label: "Services", route: { name: "services" } },
-      { label: "Find workers", route: { name: "workers" } },
       { label: "Pricing", route: { name: "pricing" } },
+      { label: "About B.L.U.E.", route: { name: "about" } },
     ],
   },
   {

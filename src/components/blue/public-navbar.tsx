@@ -10,9 +10,6 @@ import { Menu, X } from "lucide-react";
 const NAV: { label: string; route: Route }[] = [
   { label: "How it works", route: { name: "how-it-works" } },
   { label: "Services", route: { name: "services" } },
-  { label: "Find workers", route: { name: "workers" } },
-  { label: "For customers", route: { name: "for-customers" } },
-  { label: "For workers", route: { name: "for-workers" } },
   { label: "Pricing", route: { name: "pricing" } },
   { label: "About", route: { name: "about" } },
 ];

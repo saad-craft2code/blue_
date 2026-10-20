@@ -38,6 +38,18 @@ import {
   AdminReportsPage,
   AdminSettingsPage,
 } from "@/components/blue/pages/admin-pages";
+import {
+  HowItWorksPage,
+  ServicesPage,
+  PricingPage,
+  AboutPage,
+  ContactPage,
+  FaqPage,
+  PrivacyPage,
+  TermsPage,
+  ForCustomersPage,
+  ForWorkersPage,
+} from "@/components/blue/pages/public-content-pages";
 
 export default function Home() {
   const { route, navigate } = useRouter();
@@ -113,17 +125,25 @@ export default function Home() {
     case "home":
       return <LandingPage />;
     case "how-it-works":
+      return <HowItWorksPage />;
     case "services":
+      return <ServicesPage />;
     case "for-customers":
+      return <ForCustomersPage />;
     case "for-workers":
+      return <ForWorkersPage />;
     case "pricing":
+      return <PricingPage />;
     case "about":
+      return <AboutPage />;
     case "contact":
+      return <ContactPage />;
     case "faq":
+      return <FaqPage />;
     case "privacy":
+      return <PrivacyPage />;
     case "terms":
-      // Placeholder content pages — return to landing for now
-      return <LandingPage />;
+      return <TermsPage />;
 
     case "login":
       return <LoginPage />;

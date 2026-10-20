@@ -30,12 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — never commit secrets
 .env*
+!.env.example
 
 # vercel
 .vercel
-
 
 # typescript
 *.tsbuildinfo
@@ -50,5 +50,15 @@ test
 prompt
 
 server.log
+
 # Skills directory
 /skills/
+
+# Sandbox-only files & runtime artifacts
+/.zscripts/
+/tests/
+/download/
+/examples/
+/Caddyfile
+/mini-services/
+*.pid
