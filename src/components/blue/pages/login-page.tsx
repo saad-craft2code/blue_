@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Mail, Lock, ArrowLeft, Sparkles, User, Wrench, ShieldCheck } from "lucide-react";
+import { ArrowRight, Mail, Lock, ArrowLeft, Sparkles, User, Wrench, ShieldCheck, LogIn } from "lucide-react";
 
 const DEMO_ACCOUNTS = [
   {
@@ -19,6 +19,7 @@ const DEMO_ACCOUNTS = [
     icon: User,
     desc: "Post requests, compare proposals, manage jobs.",
     color: "bg-primary/10 text-primary",
+    route: "customer" as const,
   },
   {
     role: "Worker",
@@ -27,6 +28,7 @@ const DEMO_ACCOUNTS = [
     icon: Wrench,
     desc: "Receive job requests, submit proposals, earn.",
     color: "bg-success/10 text-success",
+    route: "worker-dashboard" as const,
   },
   {
     role: "Admin",
@@ -35,6 +37,7 @@ const DEMO_ACCOUNTS = [
     icon: ShieldCheck,
     desc: "Manage users, verification, and platform health.",
     color: "bg-warning/15 text-warning",
+    route: "admin" as const,
   },
 ] as const;
 
@@ -44,29 +47,28 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activeDemo, setActiveDemo] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSignIn = async (signInEmail: string, signInPassword: string, route?: "customer" | "worker-dashboard" | "admin") => {
     setLoading(true);
     try {
       const res = await signIn("credentials", {
-        email,
-        password,
+        email: signInEmail,
+        password: signInPassword,
         redirect: false,
       });
       if (!res || res.error) {
         toast({
           title: "Sign in failed",
-          description: "Check your email and password, then try again.",
+          description: "Check your email and password, then try again. Run the seed first if demo accounts don't exist yet.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
       toast({
         title: "Welcome back to B.L.U.E.",
-        description: "You're now signed in.",
+        description: `Signed in as ${signInEmail}`,
       });
-
       // fetch role and route accordingly
       try {
         const s = await fetch("/api/auth/session").then((r) => r.json());
@@ -75,17 +77,31 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
         else if (role === "WORKER") navigate({ name: "worker-dashboard" });
         else navigate({ name: "customer" });
       } catch {
-        navigate({ name: "customer" });
+        navigate(route ? { name: route } : { name: "customer" });
       }
+      return true;
     } finally {
       setLoading(false);
     }
   };
 
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await doSignIn(email, password);
+  };
+
   const quickFill = (demoEmail: string, demoPassword: string) => {
     setEmail(demoEmail);
     setPassword(demoPassword);
-    toast({ title: "Demo credentials filled", description: `Signed in as ${demoEmail}` });
+    toast({ title: "Demo credentials filled", description: `Ready to sign in as ${demoEmail}` });
+  };
+
+  const quickLogin = async (demoEmail: string, demoPassword: string, role: "customer" | "worker-dashboard" | "admin") => {
+    setActiveDemo(demoEmail);
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    await doSignIn(demoEmail, demoPassword, role);
+    setActiveDemo(null);
   };
 
   return (
@@ -112,7 +128,47 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
               conversations.
             </p>
 
-            <form onSubmit={submit} className="mt-8 space-y-4">
+            {/* One-click Quick login — top of form for fast access */}
+            <div className="mt-6 rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+                Quick login — one click, no typing
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tap a role to sign in instantly with seeded demo credentials.
+              </p>
+              <div className="mt-3 grid gap-2">
+                {DEMO_ACCOUNTS.map((d) => (
+                  <button
+                    key={d.email}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => quickLogin(d.email, d.password, d.route)}
+                    className={`w-full flex items-center gap-3 rounded-lg border bg-background p-2.5 text-left transition disabled:opacity-50 ${activeDemo === d.email ? "border-primary ring-2 ring-primary/20" : "border-border hover:bg-muted/60"}`}
+                  >
+                    <span className={`grid h-9 w-9 place-items-center rounded-lg shrink-0 ${d.color}`}>
+                      <d.icon className="h-4 w-4" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">{d.role}</p>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${activeDemo === d.email ? "text-primary" : "text-muted-foreground"}`}>
+                          {activeDemo === d.email ? <><LogIn className="h-3 w-3" /> Signing in…</> : <><LogIn className="h-3 w-3" /> One-click login</>}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{d.email}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[10px] text-muted-foreground">
+                Password for all demo accounts: <code className="rounded bg-muted px-1 py-0.5 text-[10px]">blueplatform</code>
+                <br />
+                <span className="text-[10px]">Tip: tap to sign in instantly, or use the form below to fill then sign in manually.</span>
+              </p>
+            </div>
+
+            <form onSubmit={submit} className="mt-6 space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -161,43 +217,29 @@ export function LoginPage({ defaultRole = "CUSTOMER" }: { defaultRole?: "CUSTOME
               </Button>
             </form>
 
-            {/* Demo credentials */}
-            <div className="mt-6 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-                <Sparkles className="h-3.5 w-3.5" />
-                Demo credentials — tap to autofill
+            {/* Tap-to-fill panel (for manual sign-in) */}
+            <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Or tap to autofill the form
+                </p>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Run the seed once to create these accounts, or use them directly after seeding.
-              </p>
-              <div className="mt-3 space-y-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {DEMO_ACCOUNTS.map((d) => (
                   <button
                     key={d.email}
                     type="button"
                     onClick={() => quickFill(d.email, d.password)}
-                    className="w-full flex items-center gap-3 rounded-lg border border-border bg-background p-2.5 text-left hover:bg-muted/60 transition"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[10px] font-medium hover:bg-muted/60 transition"
                   >
-                    <span className={`grid h-8 w-8 place-items-center rounded-lg shrink-0 ${d.color}`}>
-                      <d.icon className="h-4 w-4" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold">{d.role}</p>
-                        <span className="text-[10px] text-muted-foreground">tap to fill</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{d.email}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{d.desc}</p>
-                    </div>
+                    <d.icon className="h-3 w-3" />
+                    {d.role}
                   </button>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] text-muted-foreground">
-                Password for all demo accounts: <code className="rounded bg-muted px-1 py-0.5 text-[10px]">blueplatform</code>
-              </p>
             </div>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <p className="mt-4 text-center text-sm text-muted-foreground">
               New to B.L.U.E.?{" "}
               <button
                 onClick={() => navigate({ name: "register" })}

@@ -110,8 +110,72 @@ bun run lint        # Run ESLint
 bun run db:push     # Push Prisma schema to database
 bun run db:generate # Generate Prisma client
 bun run db:migrate  # Create and apply a Prisma migration
-bun run build       # Production build
+bun run build       # Production build (uses `next build`)
+bun run build:standalone  # Sandbox-specific standalone build
 ```
+
+## Deploying to Vercel
+
+B.L.U.E. is built on Next.js 16 + Prisma + Postgres and deploys cleanly to Vercel.
+
+### 1. Push the repo to GitHub
+The code is at https://github.com/saad-craft2code/blue_ — fork or import it into your own GitHub account.
+
+### 2. Create a new Vercel project
+- Go to https://vercel.com/new
+- Import the GitHub repo
+- Framework preset: **Next.js** (auto-detected)
+- Build command: `next build` (already set in `vercel.json`)
+- Install command: `bun install` (already set in `vercel.json`)
+- The `postinstall` script (`prisma generate`) runs automatically after install, so the Prisma client is ready at build time
+
+### 3. Add the required environment variables
+In **Project Settings → Environment Variables**, add these three:
+
+| Name | Value | Where to get it |
+|---|---|---|
+| `DATABASE_URL` | `postgresql://user:password@host/dbname?sslmode=require` | Your Neon Postgres dashboard (Project → Connection string) |
+| `NEXTAUTH_SECRET` | A long random string (32+ chars) | Run `openssl rand -base64 32` locally, or use any secure random generator |
+| `NEXTAUTH_URL` | `https://your-project.vercel.app` | Your Vercel production URL (set after first deploy, or use the preview URL) |
+
+Mark `DATABASE_URL` and `NEXTAUTH_SECRET` as **Production + Preview + Development** (all environments).
+Set `NEXTAUTH_URL` per-environment if you want different URLs for preview vs production.
+
+### 4. Push the schema to your database (once)
+From your local machine (or run via Vercel's terminal/CI):
+```bash
+# Use the same DATABASE_URL you set on Vercel
+DATABASE_URL='postgresql://...your-neon-url...' bun run db:push
+```
+
+### 5. Deploy
+Click **Deploy** on Vercel. The first build will:
+1. `bun install` (installs all deps)
+2. `prisma generate` (postinstall hook — generates the typed Prisma client)
+3. `next build` (compiles the app)
+
+### 6. Seed demo data
+After the first successful deploy:
+- Register a new user via the live site (any email + password)
+- Open your browser console on the live site and run:
+  ```js
+  fetch('/api/blue/seed', { method: 'POST' }).then(r => r.json()).then(console.log)
+  ```
+- This creates the demo admin, customers, workers, and sample jobs
+- Use the **Quick login** buttons on the login page to sign in instantly as Customer / Worker / Admin (password for all: `blueplatform`)
+
+### Vercel env vars summary (copy-paste)
+```
+DATABASE_URL=postgresql://neondb_owner:****@ep-****.neon.tech/neondb?sslmode=require
+NEXTAUTH_SECRET=replace-with-a-long-random-string
+NEXTAUTH_URL=https://your-project.vercel.app
+```
+
+**Security notes:**
+- Never commit `.env` to git (it's already in `.gitignore`).
+- Rotate `NEXTAUTH_SECRET` periodically.
+- Use Vercel's environment segmentation (Production / Preview / Development) for separate DBs if needed.
+
 
 ## Project structure
 
