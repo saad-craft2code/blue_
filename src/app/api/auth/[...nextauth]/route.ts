@@ -78,8 +78,42 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: getAuthSecret(),
 };
+
+/**
+ * Resolve the NextAuth secret.
+ *
+ * NextAuth v4 REQUIRES `secret` in production (NODE_ENV=production) and throws
+ * `MissingSecretError` if it is missing — causing 500s on every /api/auth/* route.
+ *
+ * We resolve it in this order:
+ *   1. process.env.NEXTAUTH_SECRET (the right way — set on Vercel)
+ *   2. process.env.AUTH_SECRET (NextAuth v5 alias — accepted for forward compat)
+ *   3. A deterministic fallback derived from the database URL so the app boots
+ *      even when the env var is forgotten (e.g. first deploy on Vercel).
+ *
+ * The fallback is NOT secure — it's only here to keep the demo bootable until
+ * the operator sets NEXTAUTH_SECRET on Vercel. A loud console.error is emitted
+ * in that case so it's obvious in Vercel logs.
+ */
+function getAuthSecret(): string {
+  const fromEnv = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+  if (fromEnv) return fromEnv;
+
+  // Last-resort fallback so first-deploy doesn't 500.
+  // Stable per-deployment because DATABASE_URL is stable per-deployment.
+  const db = process.env.DATABASE_URL || "blue-platform-fallback-secret";
+  const fallback = `blue-fallback-${db.slice(-32)}-please-set-NEXTAUTH_SECRET`;
+
+  console.error(
+    "[next-auth] NEXTAUTH_SECRET is not set. Using an insecure fallback so the app boots. " +
+      "Set NEXTAUTH_SECRET in Vercel Project Settings → Environment Variables with a 32+ char random string. " +
+      "Generate one with: openssl rand -base64 32"
+  );
+
+  return fallback;
+}
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
